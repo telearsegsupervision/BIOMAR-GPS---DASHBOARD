@@ -249,6 +249,7 @@
   .hourchart{width:100%;height:190px;}
   .hourchart .axis{stroke:var(--border);stroke-width:1;}
   .hourchart .bar{fill:var(--blue-accent);}
+  .hourchart .bar-empty{fill:var(--border);}
   .hourchart .tick{font-size:9.5px;fill:var(--text-faint);}
 
   .unit-chips{display:flex;gap:8px;flex-wrap:wrap;max-height:96px;overflow-y:auto;padding:2px;}
@@ -313,6 +314,8 @@
   .pill-sev-critico .dot{background:var(--crit);}
   .pill-sev-medio{background:var(--warn-soft);color:var(--warn-text);}
   .pill-sev-medio .dot{background:var(--warn);}
+  .pill-sev-neutral{background:var(--surface-2);color:var(--text-faint);}
+  .pill-sev-neutral .dot{background:var(--text-faint);}
 
   .empty-state{padding:30px;text-align:center;color:var(--text-faint);font-size:13px;}
 
@@ -523,6 +526,37 @@
           <h2>Viajes por hora del día</h2>
           <p class="panel-sub">Franja horaria de mayor movimiento</p>
           <div class="panel-body" id="hourChart"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2 id="kmDiarioTitle">Kilometraje diario por unidad</h2>
+        <p class="panel-sub" id="kmDiarioSub">Selecciona una unidad en el filtro "Unidad / Placa" para ver su recorrido día a día</p>
+        <div class="panel-body" id="kmDiarioChart" style="align-items:stretch;"></div>
+      </div>
+
+      <div class="table-panel">
+        <div class="table-head">
+          <div>
+            <h2>Ficha de unidades</h2>
+            <p>Placa, conductor asignado, fecha de ingreso a monitoreo y actividad registrada en todo el histórico disponible</p>
+          </div>
+          <span class="table-count" id="fichaCount"></span>
+        </div>
+        <div class="table-scroll">
+          <table style="min-width:920px;">
+            <thead>
+              <tr><th>Placa</th><th>Conductor</th><th>Ingreso</th><th>Antigüedad</th><th>Km histórico</th><th>Prom. km/día activo</th><th>Días con movimiento</th><th>Estado</th></tr>
+            </thead>
+            <tbody id="fichaTbody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot" style="justify-content:flex-start;padding:12px 18px;">
+          <span style="display:flex;gap:16px;font-size:11px;color:var(--text-faint);flex-wrap:wrap;">
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:5px;"></span>Activa · ≥10 días con movimiento</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-right:5px;"></span>Baja actividad · 1-9 días</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--crit);margin-right:5px;"></span>Sin actividad registrada</span>
+          </span>
         </div>
       </div>
     </div>
@@ -806,8 +840,26 @@
     return null;
   }
 
+  // Flota completa registrada en "PLACAS BIOMAR.xlsx" (roster oficial) que aun no aparece
+  // en TrackLink (la plataforma que alimenta la hoja DATA): usan otra app (INOUT CONTROL)
+  // o, en un caso, ninguna de las dos. Se listan a mano porque no tienen registros GPS
+  // propios que permitan derivarlas de ALL_ROWS.
+  var FLEET_SIN_TRACKLINK = [
+    {placa:"PDV6675", conductor:"Viviana Aguilar", localidad:"Guayaquil", plataforma:"INOUT CONTROL"},
+    {placa:"PDV2431", conductor:"Jhonny Valenzuela", localidad:"Machala", plataforma:"INOUT CONTROL"},
+    {placa:"PDV2468", conductor:"Marco Delgado", localidad:"Machala", plataforma:"INOUT CONTROL"},
+    {placa:"PCZ1887", conductor:"Veronica Alcivar", localidad:"Machala", plataforma:"INOUT CONTROL"},
+    {placa:"PCZ1889", conductor:"Richard Escobedo", localidad:"Machala", plataforma:"INOUT CONTROL"},
+    {placa:"PFP3174", conductor:"Giani Yepez", localidad:"", plataforma:"INOUT CONTROL"},
+    {placa:"PFP3171", conductor:"Laurence Massaut", localidad:"", plataforma:"INOUT CONTROL"},
+    {placa:"PFP3178", conductor:"Eduardo Corona", localidad:"", plataforma:"No aparece en ninguna plataforma"},
+    {placa:"PFS1355", conductor:"Socrates Almeida", localidad:"", plataforma:"INOUT CONTROL"}
+  ];
+  var PLACAS_SIN_TRACKLINK = FLEET_SIN_TRACKLINK.map(function(f){return f.placa;});
+
   var ALL_ROWS = [];
   var PLACAS_TODAS = [];
+  var PLACAS_FLOTA_TOTAL = [];
   var FILTER = {fecha:"", todos:false, desde:"", hasta:"", placa:"", conductor:"", provincia:"", q:""};
   var currentPalette = "telearseg";
   var PALETTE = ["#00d4ff","#00e6c3","#6de6ff","#5b8def","#2dd4bf","#9fe6ff","#3b6fe0","#7ee8d0"];
@@ -907,7 +959,7 @@
 
   // ---------------- Render: filtros dependientes ----------------
   function renderFilterOptions(){
-    fillSelect(document.getElementById("fPlaca"), uniqueSorted(ALL_ROWS.map(function(r){return r.placa;})), "Todas las unidades");
+    fillSelect(document.getElementById("fPlaca"), PLACAS_FLOTA_TOTAL, "Todas las unidades (29)");
     fillSelect(document.getElementById("fConductor"), uniqueSorted(ALL_ROWS.map(function(r){return r.conductor;})), "Todos los conductores");
     fillSelect(document.getElementById("fProvincia"), uniqueSorted(ALL_ROWS.map(function(r){return r.provincia;})), "Todas las provincias");
   }
@@ -920,10 +972,12 @@
       if (r.tipo === "Viaje"){ byPlaca[r.placa].km += r.km; byPlaca[r.placa].viajes++; }
     });
     var chips = ['<div class="unit-chip'+(FILTER.placa===""?" active":"")+'" data-placa="">TODAS</div>'];
-    PLACAS_TODAS.forEach(function(p){
+    PLACAS_FLOTA_TOTAL.forEach(function(p){
+      var sinTracklink = PLACAS_SIN_TRACKLINK.indexOf(p) !== -1;
       var info = byPlaca[p];
-      var color = info && info.viajes > 0 ? "var(--ok)" : "var(--text-faint)";
-      chips.push('<div class="unit-chip'+(FILTER.placa===p?" active":"")+'" data-placa="'+esc(p)+'"><span class="dot" style="background:'+color+'"></span>'+esc(p)+'</div>');
+      var color = sinTracklink ? "var(--crit)" : (info && info.viajes > 0 ? "var(--ok)" : "var(--text-faint)");
+      var title = sinTracklink ? ' title="Sin datos GPS: no vinculada a TrackLink"' : '';
+      chips.push('<div class="unit-chip'+(FILTER.placa===p?" active":"")+'"'+title+' data-placa="'+esc(p)+'"><span class="dot" style="background:'+color+'"></span>'+esc(p)+'</div>');
     });
     document.getElementById("unitChips").innerHTML = chips.join("");
     Array.prototype.forEach.call(document.querySelectorAll(".unit-chip"), function(el){
@@ -959,7 +1013,7 @@
     var placasSinActividad = PLACAS_TODAS.filter(function(p){ return placasActivas.indexOf(p) === -1; });
 
     document.getElementById("kpiRow").innerHTML = [
-      kpiCard("Unidades monitoreadas", PLACAS_TODAS.length, "Registradas en la matriz GPS", ICO_TRUCK, "var(--blue-accent)"),
+      kpiCard("Unidades monitoreadas", PLACAS_FLOTA_TOTAL.length, PLACAS_TODAS.length+" con datos GPS (TrackLink) · "+PLACAS_SIN_TRACKLINK.length+" sin vincular", ICO_TRUCK, "var(--blue-accent)"),
       kpiCard("Km recorridos", fmtNum(km)+" km", "En el período seleccionado", ICO_ROUTE, "var(--teal)"),
       kpiCard("Rutas (viajes) registradas", viajes.length, "Segmentos de viaje en el período", ICO_ACTIVE, "var(--blue-accent)"),
       kpiCard("Unidades activas", placasActivas.length+" de "+PLACAS_TODAS.length, "Con recorrido &gt; 0 km en el período", ICO_CLOCK, "var(--ok)"),
@@ -991,6 +1045,101 @@
     if (FILTER.todos) greetDate.textContent = "Mostrando todos los registros disponibles";
     else if (FILTER.desde || FILTER.hasta) greetDate.textContent = "Rango: "+fmtDateEs(FILTER.desde||minDay)+" – "+fmtDateEs(FILTER.hasta||maxDay);
     else greetDate.textContent = "Inicio de seguimiento: "+fmtDateEs(FILTER.fecha);
+  }
+
+  // Barras por dia (uno por cada dia con datos en todo el historico), no por el filtro de fecha:
+  // el kilometraje diario de una unidad se lee mejor sobre toda su serie, no un solo dia.
+  function dailyKmBarChart(days, kmByDay){
+    var max = Math.max.apply(null, days.map(function(d){return kmByDay[d]||0;})) || 1;
+    var w = Math.max(620, days.length*22), h = 190, padL = 30, padB = 24, padT = 10;
+    var bw = (w-padL-8)/days.length;
+    var bars = "";
+    days.forEach(function(d, i){
+      var v = kmByDay[d] || 0;
+      var bh = v/max*(h-padB-padT);
+      var x = padL + i*bw;
+      var y = h-padB-bh;
+      var cls = v > 0 ? "bar" : "bar-empty";
+      bars += '<rect class="'+cls+'" x="'+(x+1)+'" y="'+(v>0?y:h-padB-2)+'" width="'+Math.max(1,bw-2)+'" height="'+(v>0?Math.max(1,bh):2)+'" rx="2"><title>'+fmtDateEs(d)+': '+fmtNum(v)+' km</title></rect>';
+      if (days.length <= 20 || i % Math.ceil(days.length/15) === 0) bars += '<text class="tick" x="'+(x+bw/2)+'" y="'+(h-6)+'" text-anchor="middle">'+d.slice(8,10)+'/'+d.slice(5,7)+'</text>';
+    });
+    return '<svg class="hourchart" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="xMidYMid meet" style="min-width:100%;">' +
+      '<line class="axis" x1="'+padL+'" y1="'+(h-padB)+'" x2="'+w+'" y2="'+(h-padB)+'"></line>' + bars + '</svg>';
+  }
+
+  function renderKmDiario(){
+    var wrap = document.getElementById("kmDiarioChart");
+    if (!FILTER.placa){
+      document.getElementById("kmDiarioTitle").textContent = "Kilometraje diario por unidad";
+      document.getElementById("kmDiarioSub").textContent = 'Selecciona una unidad en el filtro "Unidad / Placa" para ver su recorrido día a día';
+      wrap.innerHTML = '<div class="empty-state">Elige una unidad arriba para ver su histórico de kilometraje</div>';
+      return;
+    }
+    if (PLACAS_SIN_TRACKLINK.indexOf(FILTER.placa) !== -1){
+      var f = FLEET_SIN_TRACKLINK.filter(function(x){return x.placa === FILTER.placa;})[0];
+      document.getElementById("kmDiarioTitle").textContent = FILTER.placa+" — kilometraje diario";
+      document.getElementById("kmDiarioSub").textContent = (f?f.conductor:"")+" · sin datos GPS";
+      wrap.innerHTML = '<div class="empty-state">Esta unidad no está vinculada a TrackLink'+(f&&f.plataforma?' (registrada en '+esc(f.plataforma)+')':'')+', por lo que no genera kilometraje en esta hoja.</div>';
+      return;
+    }
+    var rows = ALL_ROWS.filter(function(r){ return r.placa === FILTER.placa; });
+    var conductor = rows.length ? rows[rows.length-1].conductor : "";
+    var days = uniqueSorted(ALL_ROWS.map(function(r){return r.dayKey;}));
+    var kmByDay = {};
+    rows.forEach(function(r){ if (r.tipo === "Viaje") kmByDay[r.dayKey] = (kmByDay[r.dayKey]||0) + r.km; });
+    var totalKm = days.reduce(function(a,d){return a+(kmByDay[d]||0);}, 0);
+    var diasActivos = days.filter(function(d){return (kmByDay[d]||0) > 0;}).length;
+    var promedio = diasActivos ? totalKm/diasActivos : 0;
+
+    document.getElementById("kmDiarioTitle").textContent = FILTER.placa+" — kilometraje diario";
+    document.getElementById("kmDiarioSub").textContent = conductor+" · "+diasActivos+" de "+days.length+" días con movimiento";
+    wrap.innerHTML = '<div style="width:100%;overflow-x:auto;">'+dailyKmBarChart(days, kmByDay)+'</div>' +
+      '<div style="display:flex;gap:22px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--text-muted);">' +
+      '<span><b class="num" style="color:var(--text);">'+fmtNum(totalKm)+' km</b> total en el período</span>' +
+      '<span><b class="num" style="color:var(--text);">'+fmtNum(promedio)+' km/día</b> promedio en días activos</span>' +
+      '</div>';
+  }
+
+  function renderFichaUnidades(){
+    var days = uniqueSorted(ALL_ROWS.map(function(r){return r.dayKey;}));
+    var totalDias = days.length;
+    var rowsData = PLACAS_TODAS.map(function(placa){
+      var rows = ALL_ROWS.filter(function(r){ return r.placa === placa; });
+      if (!rows.length) return null;
+      var byDay = {};
+      rows.forEach(function(r){ if (r.tipo === "Viaje") byDay[r.dayKey] = (byDay[r.dayKey]||0) + r.km; });
+      var kmHist = Object.keys(byDay).reduce(function(a,d){return a+byDay[d];}, 0);
+      var diasMov = Object.keys(byDay).filter(function(d){return byDay[d] > 0;}).length;
+      var ingreso = rows.reduce(function(min,r){return (!min || r.dayKey < min) ? r.dayKey : min;}, null);
+      var antiguedadDias = ingreso ? Math.round((new Date(maxDay) - new Date(ingreso))/86400000) : 0;
+      var conductor = rows[rows.length-1].conductor;
+      var estado = diasMov >= 10 ? {label:"Activa", cls:"pill-viaje"} : diasMov >= 1 ? {label:"Baja actividad", cls:"pill-sev-medio"} : {label:"Sin actividad", cls:"pill-sev-critico"};
+      return {placa:placa, conductor:conductor, ingreso:ingreso, antiguedadDias:antiguedadDias, kmHist:kmHist, diasMov:diasMov, promKm: diasMov ? kmHist/diasMov : 0, estado:estado};
+    }).filter(Boolean);
+
+    var sinTracklinkRows = (FILTER.conductor || FILTER.provincia) ? [] : FLEET_SIN_TRACKLINK.map(function(f){
+      return {placa:f.placa, conductor:f.conductor, ingreso:null, antiguedadDias:null, kmHist:null, diasMov:0,
+        promKm:0, sinTracklink:true, plataforma:f.plataforma,
+        estado:{label:"Sin vincular a TrackLink", cls:"pill-sev-neutral"}};
+    });
+
+    rowsData = rowsData.concat(sinTracklinkRows).sort(function(a,b){ return a.placa.localeCompare(b.placa); });
+
+    document.getElementById("fichaTbody").innerHTML = rowsData.map(function(d){
+      if (d.sinTracklink){
+        return '<tr><td class="mono">'+esc(d.placa)+'</td><td>'+esc(d.conductor)+'</td>' +
+          '<td class="mono">—</td><td class="mono">—</td>' +
+          '<td class="mono">—</td><td class="mono">—</td>' +
+          '<td class="mono">0/'+totalDias+'</td>' +
+          '<td><span class="pill-est '+d.estado.cls+'" title="Registrada en '+esc(d.plataforma)+', no en TrackLink"><span class="dot"></span>'+d.estado.label+'</span></td></tr>';
+      }
+      return '<tr><td class="mono">'+esc(d.placa)+'</td><td>'+esc(d.conductor)+'</td>' +
+        '<td class="mono">'+fmtDateEs(d.ingreso)+'</td><td class="mono">'+d.antiguedadDias+' d</td>' +
+        '<td class="mono">'+fmtNum(d.kmHist)+' km</td><td class="mono">'+(d.diasMov?fmtNum(d.promKm):"—")+'</td>' +
+        '<td class="mono">'+d.diasMov+'/'+totalDias+'</td>' +
+        '<td><span class="pill-est '+d.estado.cls+'"><span class="dot"></span>'+d.estado.label+'</span></td></tr>';
+    }).join("") || '<tr><td colspan="8"><div class="empty-state">Sin unidades para los filtros seleccionados</div></td></tr>';
+    document.getElementById("fichaCount").textContent = rowsData.length + " unidades ("+PLACAS_TODAS.length+" con GPS · "+PLACAS_SIN_TRACKLINK.length+" sin vincular)";
   }
 
   function estadoBadge(tipo){
@@ -1156,6 +1305,8 @@
     detalleShown = detallePage; incShown = incPage; actShown = actPage;
     renderUnitChips();
     renderResumen();
+    renderKmDiario();
+    renderFichaUnidades();
     renderDetalle();
     renderIncidentes();
     renderEstadistica();
@@ -1164,6 +1315,7 @@
 
   function initFromData(){
     PLACAS_TODAS = uniqueSorted(ALL_ROWS.map(function(r){return r.placa;}));
+    PLACAS_FLOTA_TOTAL = uniqueSorted(PLACAS_TODAS.concat(PLACAS_SIN_TRACKLINK));
     var days = uniqueSorted(ALL_ROWS.map(function(r){return r.dayKey;}));
     minDay = days[0] || ""; maxDay = days[days.length-1] || "";
     if (!FILTER.fecha) FILTER.fecha = maxDay;
