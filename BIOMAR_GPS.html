@@ -260,7 +260,7 @@
           </div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>#</th><th>Conductor</th><th>Vehículo(s)</th><th>Lugares donde más estuvo</th><th style="text-align:right;">Km totales</th></tr></thead>
+              <thead><tr><th>#</th><th>Conductor</th><th>Vehículo(s)</th><th>Posición inicial (ruta)</th><th>Posición final (ruta)</th><th style="text-align:right;">Km totales</th></tr></thead>
               <tbody id="rankBody"></tbody>
             </table>
           </div>
@@ -337,7 +337,7 @@
         </div>
         <div class="table-scroll">
           <table>
-            <thead><tr><th>Fecha</th><th>Día</th><th style="text-align:right;">Km</th><th>Hora inicio</th><th>Hora fin</th><th>Ubicación inicial</th><th>Ubicación final</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Fecha</th><th style="text-align:right;">Km</th><th>H. Inicio</th><th>H. Fin</th><th>Posición inicial</th><th>Posición final</th><th>Estado</th></tr></thead>
             <tbody id="dBody"></tbody>
           </table>
         </div>
@@ -593,34 +593,34 @@
 
     var byConductor = {};
     data.forEach(function(d){
-      if (!byConductor[d.conductor]) byConductor[d.conductor] = { km:0, placas:{}, ciudades:{} };
-      byConductor[d.conductor].km += d.km;
-      byConductor[d.conductor].placas[d.placa] = true;
-      byConductor[d.conductor].ciudades[d.ciudad] = (byConductor[d.conductor].ciudades[d.ciudad]||0) + d.km;
+      if (!byConductor[d.conductor]) byConductor[d.conductor] = { km:0, placas:{}, first:d, last:d };
+      var c = byConductor[d.conductor];
+      c.km += d.km;
+      c.placas[d.placa] = true;
+      if (d.fechaSort < c.first.fechaSort) c.first = d;
+      if (d.fechaSort > c.last.fechaSort) c.last = d;
     });
     var rankArr = Object.keys(byConductor).map(function(name){
       var c = byConductor[name];
-      var topCiudades = Object.keys(c.ciudades).map(function(city){ return {city:city, km:c.ciudades[city]}; })
-        .sort(function(a,b){ return b.km - a.km; }).slice(0,3);
-      return { name:name, km:c.km, placas:Object.keys(c.placas).join(", "), top:topCiudades };
+      return { name:name, km:c.km, placas:Object.keys(c.placas).join(", "), inicio:c.first, fin:c.last };
     }).filter(function(r){ return r.km > 0; }).sort(function(a,b){ return b.km - a.km; });
 
     document.getElementById("rankCount").textContent = rankArr.length + " conductores";
     var rankBody = document.getElementById("rankBody");
     rankBody.innerHTML = "";
     rankArr.forEach(function(r, idx){
-      var topText = r.top.map(function(t,i){ return (i+1) + ". " + t.city + " (" + fmtKm(t.km) + ")"; }).join(" · ");
       var tr = document.createElement("tr");
       tr.innerHTML =
         '<td><span class="rank-num">' + (idx+1) + '</span></td>' +
         '<td>' + r.name + '</td>' +
         '<td class="mono">' + r.placas + '</td>' +
-        '<td class="desc">' + topText + '</td>' +
+        '<td class="desc">' + mapLink(r.inicio.ubicacion) + '<div style="color:var(--text-faint);font-size:10.5px;margin-top:2px;">' + r.inicio.fecha + ' ' + r.inicio.hora + '</div></td>' +
+        '<td class="desc">' + mapLink(r.fin.ubicacion) + '<div style="color:var(--text-faint);font-size:10.5px;margin-top:2px;">' + r.fin.fecha + ' ' + r.fin.hora + '</div></td>' +
         '<td class="num">' + fmtKm(r.km) + '</td>';
       rankBody.appendChild(tr);
     });
     if (!rankArr.length){
-      rankBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-faint);padding:26px;">Sin recorridos registrados en el periodo filtrado.</td></tr>';
+      rankBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-faint);padding:26px;">Sin recorridos registrados en el periodo filtrado.</td></tr>';
     }
 
     var byCiudad = {};
@@ -708,7 +708,7 @@
 
     document.getElementById("dSub").textContent = rows.length + " registros" +
       (dateKeys.length ? " · " + fmtDateShort(dateKeys[dateKeys.length-1]) + " – " + fmtDateShort(dateKeys[0]) : "") +
-      " · clic en una ubicación para abrirla en Google Maps";
+      " · clic en una posición para abrirla en Google Maps";
 
     var body = document.getElementById("dBody");
     body.innerHTML = "";
@@ -723,8 +723,7 @@
       var diaLabel = isNaN(dt.getTime()) ? "" : WEEKDAYS_ES[dt.getDay()];
       var tr = document.createElement("tr");
       tr.innerHTML =
-        '<td class="mono">' + fmtDateShort(key) + '</td>' +
-        '<td>' + diaLabel + '</td>' +
+        '<td class="mono">' + fmtDateShort(key) + ' · ' + diaLabel + '</td>' +
         '<td class="num">' + (kmTotal>0 ? kmTotal.toLocaleString("es-EC",{minimumFractionDigits:1,maximumFractionDigits:1}) : "–") + '</td>' +
         '<td class="mono">' + (kmTotal>0 ? first.hora : "–") + '</td>' +
         '<td class="mono">' + (kmTotal>0 ? last.hora : "–") + '</td>' +
@@ -734,7 +733,7 @@
       body.appendChild(tr);
     });
     if (!dateKeys.length){
-      body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-faint);padding:26px;">Sin registros para este vehículo.</td></tr>';
+      body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-faint);padding:26px;">Sin registros para este vehículo.</td></tr>';
     }
 
     var warnBox = document.getElementById("dWarning");
