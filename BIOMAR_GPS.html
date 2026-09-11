@@ -76,6 +76,8 @@
     font-size:12.5px;font-weight:600;color:#eef2fb;
   }
   .pill svg{width:14px;height:14px;opacity:.85;}
+  a.pill{border-color:rgba(0,212,255,.4);transition:background .15s,border-color .15s;}
+  a.pill:hover{background:rgba(0,212,255,.16);border-color:var(--blue-accent);}
   .source-line{font-size:10.5px;color:#93a7cf;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
   .source-line svg{width:11px;height:11px;color:#3ecf8e;flex:0 0 auto;}
   .source-line a{color:#bcd0f7;}
@@ -118,6 +120,33 @@
   .kpi-foot{font-size:11px;color:var(--text-faint);}
   .grid-2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;}
   @media (max-width:900px){.grid-2{grid-template-columns:1fr;}}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+  @media (max-width:1100px){.grid-3{grid-template-columns:1fr 1fr;}}
+  @media (max-width:700px){.grid-3{grid-template-columns:1fr;}}
+  .linechart{width:100%;height:190px;}
+  .linechart .axis{stroke:var(--border);stroke-width:1;}
+  .linechart .line{fill:none;stroke:var(--blue-accent);stroke-width:2.2;}
+  .linechart .area{fill:url(#gpsAreaGrad);}
+  .linechart .dot{fill:var(--surface);stroke:var(--blue-accent);stroke-width:2;cursor:pointer;}
+  .linechart .tick{font-size:9.5px;fill:var(--text-faint);}
+  .donut-wrap{display:flex;align-items:center;gap:18px;width:100%;justify-content:center;flex-wrap:wrap;}
+  .donut-center-num{font-size:20px;font-weight:800;fill:var(--text);}
+  .donut-center-label{font-size:9.5px;fill:var(--text-faint);}
+  .legend{display:flex;flex-direction:column;gap:7px;}
+  .legend-row{display:flex;align-items:center;gap:9px;font-size:12px;}
+  .legend-swatch{width:9px;height:9px;border-radius:2px;flex:0 0 auto;}
+  .legend-name{flex:1;color:var(--text-muted);}
+  .legend-val{font-weight:700;color:var(--text);}
+  .chip-list{display:flex;flex-wrap:wrap;gap:8px;max-height:220px;overflow-y:auto;}
+  .chip{
+    display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:100px;
+    font-size:11.5px;font-weight:700;font-family:monospace;white-space:nowrap;
+  }
+  .chip .dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;}
+  .chip-active{background:var(--ok-soft);color:var(--ok);}
+  .chip-active .dot{background:var(--ok);}
+  .chip-inactive{background:var(--surface-2);color:var(--text-faint);}
+  .chip-inactive .dot{background:var(--text-faint);}
   .panel{
     background:var(--surface);border:1px solid var(--border);border-radius:14px;
     padding:16px 18px 18px;box-shadow:var(--shadow-card);
@@ -206,6 +235,10 @@
         <p class="sub">Kilometraje diario · Recorrido por vehículo y conductor</p>
       </div>
       <div class="topbar-right">
+        <a class="pill" id="protocolLink" href="https://drive.google.com/file/d/1w4I4uGPv2Lkxvr-qR5JOnuPvxW-6QO8W/view?usp=sharing" target="_blank" rel="noopener" style="text-decoration:none;cursor:pointer;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2h6l1 3h3v16H5V5h3l1-3z"/><path d="M9 11h6M9 15h6M9 7h1"/></svg>
+          PROTOCOLO
+        </a>
         <div class="pill">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
           <span id="clockNow">--:--</span>
@@ -252,6 +285,12 @@
 
       <div class="kpis" id="kpiRow"></div>
 
+      <div class="panel">
+        <h2>Actividad diaria — km recorridos por día</h2>
+        <p class="panel-sub">Tendencia del periodo filtrado · pase el cursor sobre un punto para ver el detalle</p>
+        <div id="dailyChartWrap"></div>
+      </div>
+
       <div class="grid-2">
         <div class="table-panel">
           <div class="table-head">
@@ -268,8 +307,42 @@
 
         <div class="panel">
           <h2>Top destinos por km acumulado</h2>
-          <p class="panel-sub">Ciudad / provincia con mayor recorrido en el periodo filtrado</p>
+          <p class="panel-sub">Ciudad con mayor recorrido en el periodo filtrado</p>
           <div class="bars" id="destBars"></div>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="panel">
+          <h2>Top provincias por km</h2>
+          <p class="panel-sub">Provincia con mayor recorrido acumulado</p>
+          <div class="bars" id="provBars"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Ranking por vehículo — km recorridos</h2>
+          <p class="panel-sub">Top 8 vehículos con más kilometraje</p>
+          <div class="bars" id="vehBars"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Viajes vs. paradas</h2>
+          <p class="panel-sub">Distribución de eventos registrados</p>
+          <div class="donut-wrap" id="tipoDonutWrap"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <h2>Unidades activas vs. inactivas</h2>
+          <p class="panel-sub">Vehículos de la flota con y sin recorrido en el periodo filtrado</p>
+          <div class="donut-wrap" id="unitDonutWrap"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Detalle por unidad</h2>
+          <p class="panel-sub">Cada placa de la flota, activa o inactiva</p>
+          <div class="chip-list" id="unitChips"></div>
         </div>
       </div>
     </div>
@@ -645,6 +718,156 @@
     if (!destArr.length){
       destBars.innerHTML = '<div style="text-align:center;color:var(--text-faint);padding:16px 0;font-size:12px;">Sin destinos registrados.</div>';
     }
+
+    var byProvincia = {};
+    data.forEach(function(d){ byProvincia[d.provincia] = (byProvincia[d.provincia]||0) + d.km; });
+    var provArr = Object.keys(byProvincia).map(function(p){ return {name:p, km:byProvincia[p]}; })
+      .filter(function(x){ return x.km > 0; }).sort(function(a,b){ return b.km - a.km; }).slice(0,8);
+    renderBarList("provBars", provArr, false);
+
+    var byPlaca = {};
+    data.forEach(function(d){ byPlaca[d.placa] = (byPlaca[d.placa]||0) + d.km; });
+    var vehArr = Object.keys(byPlaca).map(function(p){ return {name:p, km:byPlaca[p]}; })
+      .filter(function(x){ return x.km > 0; }).sort(function(a,b){ return b.km - a.km; }).slice(0,8);
+    renderBarList("vehBars", vehArr, true);
+
+    renderTipoDonut(data);
+    renderUnitStatus(data);
+    renderDailyChart(data);
+  }
+
+  function renderUnitStatus(data){
+    var activeSet = {};
+    data.forEach(function(d){ if (d.km > 0) activeSet[d.placa] = true; });
+    var fleet = uniqueSorted(ALWAYS_SHOW_PLACAS.concat(data.map(function(d){ return d.placa; })));
+    var activePlacas = fleet.filter(function(p){ return activeSet[p]; });
+    var inactivePlacas = fleet.filter(function(p){ return !activeSet[p]; });
+    var total = fleet.length || 1;
+    var activePct = activePlacas.length / total;
+
+    var r = 42, cx = 55, cy = 55, circ = 2*Math.PI*r;
+    var activeLen = circ*activePct;
+    var svg = '<svg viewBox="0 0 110 110" width="120" height="120">' +
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--surface-2)" stroke-width="14"/>' +
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--ok)" stroke-width="14" stroke-dasharray="'+activeLen+' '+circ+'" transform="rotate(-90 '+cx+' '+cy+')" stroke-linecap="round"/>' +
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--warn)" stroke-width="14" stroke-dasharray="'+(circ-activeLen)+' '+circ+'" stroke-dashoffset="-'+activeLen+'" transform="rotate(-90 '+cx+' '+cy+')" stroke-linecap="round" opacity=".55"/>' +
+      '<text x="'+cx+'" y="'+(cy-2)+'" text-anchor="middle" class="donut-center-num">'+fleet.length+'</text>' +
+      '<text x="'+cx+'" y="'+(cy+12)+'" text-anchor="middle" class="donut-center-label">unidades</text>' +
+      '</svg>';
+    var legend = '<div class="legend">' +
+      '<div class="legend-row"><span class="legend-swatch" style="background:var(--ok);"></span><span class="legend-name">Activas</span><span class="legend-val">' + activePlacas.length + ' (' + Math.round(activePct*100) + '%)</span></div>' +
+      '<div class="legend-row"><span class="legend-swatch" style="background:var(--warn);"></span><span class="legend-name">Inactivas</span><span class="legend-val">' + inactivePlacas.length + ' (' + Math.round((1-activePct)*100) + '%)</span></div>' +
+      '</div>';
+    document.getElementById("unitDonutWrap").innerHTML = svg + legend;
+
+    var chipsBox = document.getElementById("unitChips");
+    var html = "";
+    activePlacas.forEach(function(p){
+      html += '<span class="chip chip-active"><span class="dot"></span>' + p + '</span>';
+    });
+    inactivePlacas.forEach(function(p){
+      html += '<span class="chip chip-inactive"><span class="dot"></span>' + p + '</span>';
+    });
+    chipsBox.innerHTML = html || '<div style="text-align:center;color:var(--text-faint);padding:16px 0;font-size:12px;">Sin unidades registradas.</div>';
+  }
+
+  function renderBarList(elId, arr, mono){
+    var box = document.getElementById(elId);
+    box.innerHTML = "";
+    var maxV = arr.length ? arr[0].km : 1;
+    arr.forEach(function(x){
+      var row = document.createElement("div");
+      row.className = "bar-row";
+      row.innerHTML =
+        '<div class="bar-name"' + (mono ? ' style="font-family:monospace;"' : '') + '>' + x.name + '</div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + Math.max(4, (x.km/maxV*100)) + '%;"></div></div>' +
+        '<div class="bar-val">' + fmtKm(x.km) + '</div>';
+      box.appendChild(row);
+    });
+    if (!arr.length){
+      box.innerHTML = '<div style="text-align:center;color:var(--text-faint);padding:16px 0;font-size:12px;">Sin datos en el periodo filtrado.</div>';
+    }
+  }
+
+  function renderTipoDonut(data){
+    var viajes = data.filter(function(d){ return d.tipo === "Viaje"; }).length;
+    var paradas = data.filter(function(d){ return d.tipo === "Parada"; }).length;
+    var total = viajes + paradas;
+    var wrap = document.getElementById("tipoDonutWrap");
+    if (!total){
+      wrap.innerHTML = '<div style="text-align:center;color:var(--text-faint);padding:16px 0;font-size:12px;">Sin eventos en el periodo filtrado.</div>';
+      return;
+    }
+    var r = 42, cx = 55, cy = 55, circ = 2*Math.PI*r;
+    var viajesPct = viajes/total, paradasPct = paradas/total;
+    var viajesLen = circ*viajesPct;
+    var svg = '<svg viewBox="0 0 110 110" width="120" height="120">' +
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--surface-2)" stroke-width="14"/>' +
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--ok)" stroke-width="14" stroke-dasharray="'+viajesLen+' '+circ+'" transform="rotate(-90 '+cx+' '+cy+')" stroke-linecap="round"/>' +
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--text-faint)" stroke-width="14" stroke-dasharray="'+(circ-viajesLen)+' '+circ+'" stroke-dashoffset="-'+viajesLen+'" transform="rotate(-90 '+cx+' '+cy+')" stroke-linecap="round" opacity=".45"/>' +
+      '<text x="'+cx+'" y="'+(cy-2)+'" text-anchor="middle" class="donut-center-num">'+total+'</text>' +
+      '<text x="'+cx+'" y="'+(cy+12)+'" text-anchor="middle" class="donut-center-label">eventos</text>' +
+      '</svg>';
+    var legend = '<div class="legend">' +
+      '<div class="legend-row"><span class="legend-swatch" style="background:var(--ok);"></span><span class="legend-name">Viajes</span><span class="legend-val">' + viajes + ' (' + Math.round(viajesPct*100) + '%)</span></div>' +
+      '<div class="legend-row"><span class="legend-swatch" style="background:var(--text-faint);"></span><span class="legend-name">Paradas</span><span class="legend-val">' + paradas + ' (' + Math.round(paradasPct*100) + '%)</span></div>' +
+      '</div>';
+    wrap.innerHTML = svg + legend;
+  }
+
+  function renderDailyChart(data){
+    var byDate = {};
+    data.forEach(function(d){
+      var k = d.fechaSort.slice(0,10);
+      byDate[k] = (byDate[k]||0) + d.km;
+    });
+    var keys = Object.keys(byDate).sort();
+    var wrap = document.getElementById("dailyChartWrap");
+    if (!keys.length){
+      wrap.innerHTML = '<div style="text-align:center;color:var(--text-faint);padding:40px 0;font-size:12px;">Sin datos para graficar en el periodo filtrado.</div>';
+      return;
+    }
+    var W = 900, H = 190, padL = 10, padR = 10, padT = 14, padB = 24;
+    var vals = keys.map(function(k){ return byDate[k]; });
+    var maxV = Math.max.apply(null, vals) || 1;
+    var n = keys.length;
+    var stepX = n > 1 ? (W - padL - padR) / (n - 1) : 0;
+    function xAt(i){ return padL + stepX * i; }
+    function yAt(v){ return padT + (H - padT - padB) * (1 - v / maxV); }
+    var pathD = "";
+    keys.forEach(function(k, i){
+      var x = xAt(i), y = yAt(byDate[k]);
+      pathD += (i===0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1) + " ";
+    });
+    var areaD = pathD + "L" + xAt(n-1).toFixed(1) + "," + (H-padB) + " L" + xAt(0).toFixed(1) + "," + (H-padB) + " Z";
+
+    var tickEvery = Math.max(1, Math.ceil(n/8));
+    var ticks = "";
+    keys.forEach(function(k, i){
+      if (i % tickEvery !== 0 && i !== n-1) return;
+      var p = k.split("/");
+      var lbl = p[2] + "/" + p[1];
+      ticks += '<text class="tick" x="' + xAt(i).toFixed(1) + '" y="' + (H-6) + '" text-anchor="middle">' + lbl + '</text>';
+    });
+
+    var dots = "";
+    keys.forEach(function(k, i){
+      var x = xAt(i), y = yAt(byDate[k]);
+      dots += '<circle class="dot" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.5"><title>' + fmtDateShort(k) + ': ' + fmtKm(byDate[k]) + '</title></circle>';
+    });
+
+    var svg =
+      '<svg class="linechart" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+      '<defs><linearGradient id="gpsAreaGrad" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#00d4ff" stop-opacity=".35"/>' +
+      '<stop offset="1" stop-color="#00d4ff" stop-opacity="0"/>' +
+      '</linearGradient></defs>' +
+      '<line class="axis" x1="' + padL + '" y1="' + (H-padB) + '" x2="' + (W-padR) + '" y2="' + (H-padB) + '"/>' +
+      '<path class="area" d="' + areaD + '"/>' +
+      '<path class="line" d="' + pathD.trim() + '"/>' +
+      dots + ticks +
+      '</svg>';
+    wrap.innerHTML = svg;
   }
 
   var REG_PAGE = 50, regShown = REG_PAGE;
