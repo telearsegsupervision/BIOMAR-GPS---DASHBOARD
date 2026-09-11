@@ -310,7 +310,7 @@
         </div>
         <div class="table-scroll">
           <table>
-            <thead><tr><th>Fecha</th><th>Hora</th><th>Placa</th><th>Conductor</th><th>Provincia</th><th>Ciudad</th><th>Ubicación</th><th>Tipo</th><th>Duración</th><th style="text-align:right;">Km</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Placa</th><th>Hora de inicio</th><th>Hora de finalización</th><th>Conductor</th><th>Provincia</th><th>Ciudad</th><th>Ubicación</th><th>Tipo</th><th>Duración</th><th style="text-align:right;">Km</th><th style="text-align:right;">Odómetro inicial</th><th style="text-align:right;">Odómetro final</th></tr></thead>
             <tbody id="regBody"></tbody>
           </table>
         </div>
@@ -425,14 +425,17 @@
       var ubicacion = cleanWs(row[11]);
       var tipo = cleanWs(row[12]);
       var duracion = cleanWs(row[13]);
+      var odoIni = numEs(row[14]);
+      var odoFin = numEs(row[15]);
       var km = numEs(row[16]);
       var hora = cleanWs(row[3]);
+      var horaFin = cleanWs(row[6]);
       out.push({
-        fecha: day + "/" + m[2] + "/" + year, fechaSort: fechaIni, hora: hora,
+        fecha: day + "/" + m[2] + "/" + year, fechaSort: fechaIni, hora: hora, horaFin: horaFin,
         mesKey: mesKey, mesLabel: (MES_NOMBRES[monthNum-1]||"") + " " + year,
         placa: placa, conductor: conductor || "Sin registro de nombre",
         provincia: provincia, ciudad: ciudad || "Sin ciudad", ubicacion: ubicacion,
-        tipo: tipo, duracion: duracion, km: km
+        tipo: tipo, duracion: duracion, odoIni: odoIni, odoFin: odoFin, km: km
       });
     }
     return out;
@@ -656,19 +659,22 @@
       var tr = document.createElement("tr");
       tr.innerHTML =
         '<td class="mono">' + d.fecha + '</td>' +
-        '<td class="mono">' + d.hora + '</td>' +
         '<td class="mono">' + d.placa + '</td>' +
+        '<td class="mono">' + (d.hora || "–") + '</td>' +
+        '<td class="mono">' + (d.horaFin || "–") + '</td>' +
         '<td>' + d.conductor + '</td>' +
         '<td>' + d.provincia + '</td>' +
         '<td>' + d.ciudad + '</td>' +
-        '<td class="desc">' + d.ubicacion + '</td>' +
+        '<td class="desc">' + mapLink(d.ubicacion) + '</td>' +
         '<td><span class="pill-tipo ' + pillClass + '">' + d.tipo + '</span></td>' +
         '<td class="mono">' + d.duracion + '</td>' +
-        '<td class="num">' + fmtKm(d.km) + '</td>';
+        '<td class="num">' + fmtKm(d.km) + '</td>' +
+        '<td class="num">' + d.odoIni.toLocaleString("es-EC",{minimumFractionDigits:1,maximumFractionDigits:1}) + '</td>' +
+        '<td class="num">' + d.odoFin.toLocaleString("es-EC",{minimumFractionDigits:1,maximumFractionDigits:1}) + '</td>';
       body.appendChild(tr);
     });
     if (!slice.length){
-      body.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text-faint);padding:26px;">Sin registros para los filtros seleccionados.</td></tr>';
+      body.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--text-faint);padding:26px;">Sin registros para los filtros seleccionados.</td></tr>';
     }
     document.getElementById("regFoot").style.display = data.length > regShown ? "flex" : "none";
   }
